@@ -8,9 +8,21 @@ public class SecurityConfig {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                //Esses endpoits qualquer um pode acessasr
-                .requestMatchers("/login").permitAll()
-                .requestMatchers("/cadastro").permitAll()
+                //Esses endpoints qualquer um pode acessar
+                .requestMatchers("/login").permitAll();
+                .requestMatchers("/cadastro").permitAll();
+
+                //Esses endpoints estão exigindo que tenha uma autorização pra acessar
+                //Os ** na frente vão exigir que tudo que começa com o endpoint precisa estar autenticado
+                .requestMatchers("/ingredientes/**").authenticated();
+                .requestMatchers("/clientes/**").authenticated();
+                .requestMatchers("/comandas/**").authenticated();
+                .requestMatchers("/eventos/**").authenticated();
+                .requestMatchers("/bebidas/**").authenticated();
+                .requestMatchers("/mesas/**").authenticated();
+                .requestMatchers("/api/promocoes/**").authenticated();
+
+                .anyRequest().authenticated();
             )
 
         return http.build();
