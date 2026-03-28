@@ -1,7 +1,12 @@
 package com.grupo_5.pub.Controller;
-
 import com.grupo_5.pub.Model.*;
 import com.grupo_5.pub.Repository.*;
+
+import com.grupo_5.pub.Workers.WebhookPayload;
+import com.grupo_5.pub.Workers.WebhookWorker;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,24 +18,30 @@ import java.util.Optional;
 @RequestMapping("/comandas")
 public class ComandaController {
 
+    private static final Logger log = LoggerFactory.getLogger(ComandaController.class);
+
     private final ComandaRepository comandaRepo;
     private final ItemComandaRepository itemRepo;
     private final BebidaRepository bebidaRepo;
     private final PromocaoRepository promocaoRepo;
     private final PromocaoAplicadaRepository promoAplicadaRepo;
 
+    private final WebhookWorker webhookWorker;
+
     public ComandaController(
             ComandaRepository comandaRepo,
             ItemComandaRepository itemRepo,
             BebidaRepository bebidaRepo,
             PromocaoRepository promocaoRepo,
-            PromocaoAplicadaRepository promoAplicadaRepo) {
+            PromocaoAplicadaRepository promoAplicadaRepo,
+            WebhookWorker webhookWorker) {
 
-        this.comandaRepo = comandaRepo;
-        this.itemRepo = itemRepo;
-        this.bebidaRepo = bebidaRepo;
-        this.promocaoRepo = promocaoRepo;
+        this.comandaRepo      = comandaRepo;
+        this.itemRepo         = itemRepo;
+        this.bebidaRepo       = bebidaRepo;
+        this.promocaoRepo     = promocaoRepo;
         this.promoAplicadaRepo = promoAplicadaRepo;
+        this.webhookWorker    = webhookWorker;
     }
 
     // ---------------------------------------------------------
@@ -59,14 +70,14 @@ public class ComandaController {
                                      @RequestParam Integer qtd) {
 
         Optional<Comanda> comandaOpt = comandaRepo.findById(id);
-        Optional<Bebida> bebidaOpt = bebidaRepo.findById(idBebida);
+        Optional<Bebida> bebidaOpt   = bebidaRepo.findById(idBebida);
 
         if (comandaOpt.isEmpty() || bebidaOpt.isEmpty()) {
             return ResponseEntity.badRequest().body("Comanda ou bebida não encontrada");
         }
 
         Comanda c = comandaOpt.get();
-        Bebida b = bebidaOpt.get();
+        Bebida  b = bebidaOpt.get();
 
         ItemComanda item = new ItemComanda();
         item.setComanda(c);
@@ -92,15 +103,15 @@ public class ComandaController {
     public ResponseEntity<?> deleteItem(@PathVariable Integer id,
                                         @PathVariable Integer itemId) {
 
-        Optional<ItemComanda> itemOpt = itemRepo.findById(itemId);
-        Optional<Comanda> comandaOpt = comandaRepo.findById(id);
+        Optional<ItemComanda> itemOpt    = itemRepo.findById(itemId);
+        Optional<Comanda>     comandaOpt = comandaRepo.findById(id);
 
         if (itemOpt.isEmpty() || comandaOpt.isEmpty()) {
             return ResponseEntity.badRequest().body("Item ou comanda não encontrados");
         }
 
         ItemComanda item = itemOpt.get();
-        Comanda c = comandaOpt.get();
+        Comanda     c    = comandaOpt.get();
 
         c.setValorSubtotal(c.getValorSubtotal().subtract(item.getValorItem()));
         c.setValorTotal(c.getValorSubtotal());
@@ -112,7 +123,7 @@ public class ComandaController {
     }
 
     // ---------------------------------------------------------
-    // 4) FECHAR COMANDA (com ou sem promoção)
+    // 4) FECHAR COMANDA — INTEGRAÇÃO ASSÍNCRONA ADICIONADA AQUI
     // ---------------------------------------------------------
     @PostMapping("/{id}/fechar")
     public ResponseEntity<?> fechar(@PathVariable Integer id,
@@ -122,9 +133,6 @@ public class ComandaController {
         if (opt.isEmpty()) return ResponseEntity.badRequest().body("Comanda não encontrada");
 
         Comanda c = opt.get();
-
-        // subtotal já está calculado ao adicionar/remover itens
-
         BigDecimal desconto = BigDecimal.ZERO;
 
         if (idPromocao != null) {
@@ -132,7 +140,6 @@ public class ComandaController {
             if (promoOpt.isPresent()) {
 
                 Promocao p = promoOpt.get();
-
                 desconto = c.getValorSubtotal()
                         .multiply(p.getValorDesconto().divide(BigDecimal.valueOf(100)));
 
@@ -156,9 +163,23 @@ public class ComandaController {
         c.setStatus("FECHADA");
         c.setDataFechamento(LocalDateTime.now());
 
-        comandaRepo.save(c);
+        Comanda comandaSalva = comandaRepo.save(c);
 
-        return ResponseEntity.ok(c);
+        WebhookPayload payload = new WebhookPayload(
+                comandaSalva.getId(),
+                comandaSalva.getStatus(),
+                comandaSalva.getDataFechamento(),
+                comandaSalva.getValorSubtotal(),
+                comandaSalva.getValorDesconto(),
+                comandaSalva.getValorTotal()
+        );
+
+
+        log.info("[ComandaController] Comanda {} fechada. Disparando webhook assíncrono...",
+                 comandaSalva.getId());
+        webhookWorker.notificarFechamentoComanda(payload);
+
+        return ResponseEntity.ok(comandaSalva);
     }
 
     // ---------------------------------------------------------
