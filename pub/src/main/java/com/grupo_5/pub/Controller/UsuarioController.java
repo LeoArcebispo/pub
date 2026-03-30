@@ -50,23 +50,23 @@ public class UsuarioController {
                 data.getPassword()
         );
 
-        authenticationManager.authenticate(usernamePassword);
-
         try {
             authenticationManager.authenticate(usernamePassword);
+
+            Sessao sessao = new Sessao();
+            sessao.setNome(data.getUsername());
+            sessao.setCriadoEm(LocalDateTime.now());
+            sessao.setExpiraEm(LocalDateTime.now().plusSeconds(30));
+            sessaoRepository.save(sessao);
+
+            String token = tokenService.generateToken(data.getUsername());
+
+            return ResponseEntity.ok(new LoginResponseDTO(token));
+
         } catch (Exception e) {
             return ResponseEntity.status(401).body(new ErrorResponseDTO("Credenciais inválidas"));
         }
 
-
-        Sessao sessao = new Sessao();
-        sessao.setNome(data.getUsername());
-        sessao.setCriadoEm(LocalDateTime.now());
-        sessao.setExpiraEm(LocalDateTime.now().plusSeconds(30));
-
-        sessaoRepository.save(sessao);
-
-        return ResponseEntity.ok(new LoginResponseDTO(token));
     }
 
     @PostMapping("/cadastro")
