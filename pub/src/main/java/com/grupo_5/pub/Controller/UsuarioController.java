@@ -7,12 +7,16 @@ import com.grupo_5.pub.DTO.LoginResponseDTO;
 
 import com.grupo_5.pub.Model.Usuario;
 import com.grupo_5.pub.Repository.UsuarioRepository;
+
+import com.grupo_5.pub.Fila.FilaEmail;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+
 
 @RestController
 @RequestMapping("/auth")
@@ -58,7 +62,8 @@ public class UsuarioController {
 
         usuarioRepository.save(usuario);
 
+        FilaEmail.fila.add("Bem-vindo, " + usuario.getUsername());
+
         return ResponseEntity.ok("Usuário cadastrado com sucesso");
     }
 }
-
