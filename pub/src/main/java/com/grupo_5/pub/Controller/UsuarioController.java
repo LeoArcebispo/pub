@@ -4,6 +4,7 @@ import com.grupo_5.pub.DTO.CadastroRequestDTO;
 import com.grupo_5.pub.Infra.Security.TokenService;
 import com.grupo_5.pub.DTO.LoginRequestDTO;
 import com.grupo_5.pub.DTO.LoginResponseDTO;
+import com.grupo_5.pub.DTO.ErrorResponseDTO;
 
 import com.grupo_5.pub.Model.Sessao;
 import com.grupo_5.pub.Model.Usuario;
@@ -42,7 +43,7 @@ public class UsuarioController {
     private PasswordEncoder passwordEncoder;
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponseDTO> login(@RequestBody LoginRequestDTO data) {
+    public ResponseEntity<?>  login(@RequestBody LoginRequestDTO data) {
 
         var usernamePassword = new UsernamePasswordAuthenticationToken(
                 data.getUsername(),
@@ -51,7 +52,12 @@ public class UsuarioController {
 
         authenticationManager.authenticate(usernamePassword);
 
-        String token = tokenService.generateToken(data.getUsername());
+        try {
+            authenticationManager.authenticate(usernamePassword);
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body(new ErrorResponseDTO("Credenciais inválidas"));
+        }
+
 
         Sessao sessao = new Sessao();
         sessao.setNome(data.getUsername());
