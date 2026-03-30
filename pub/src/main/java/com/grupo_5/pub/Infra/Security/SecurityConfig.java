@@ -30,6 +30,9 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/login").permitAll()
                 .requestMatchers("/auth/cadastro").permitAll()
+
+                .requestMatchers("/upload/**").permitAll()
+
                 .requestMatchers("/ingredientes/**").authenticated()
                 .requestMatchers("/clientes/**").authenticated()
                 .requestMatchers("/comandas/**").authenticated()
@@ -37,7 +40,7 @@ public class SecurityConfig {
                 .requestMatchers("/bebidas/**").authenticated()
                 .requestMatchers("/mesas/**").authenticated()
                 .requestMatchers("/api/promocoes/**").authenticated()
-                .anyRequest().authenticated()
+                // .anyRequest().authenticated()
             )
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);
