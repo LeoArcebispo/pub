@@ -5,7 +5,9 @@ import com.grupo_5.pub.Infra.Security.TokenService;
 import com.grupo_5.pub.DTO.LoginRequestDTO;
 import com.grupo_5.pub.DTO.LoginResponseDTO;
 
+import com.grupo_5.pub.Model.Sessao;
 import com.grupo_5.pub.Model.Usuario;
+import com.grupo_5.pub.Repository.SessaoRepository;
 import com.grupo_5.pub.Repository.UsuarioRepository;
 
 import com.grupo_5.pub.Fila.FilaEmail;
@@ -17,10 +19,15 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+
 
 @RestController
 @RequestMapping("/auth")
 public class UsuarioController {
+
+    @Autowired
+    private SessaoRepository sessaoRepository;
 
     @Autowired
     private AuthenticationManager authenticationManager;
@@ -45,6 +52,13 @@ public class UsuarioController {
         authenticationManager.authenticate(usernamePassword);
 
         String token = tokenService.generateToken(data.getUsername());
+
+        Sessao sessao = new Sessao();
+        sessao.setNome(data.getUsername());
+        sessao.setCriadoEm(LocalDateTime.now());
+        sessao.setExpiraEm(LocalDateTime.now().plusSeconds(30));
+
+        sessaoRepository.save(sessao);
 
         return ResponseEntity.ok(new LoginResponseDTO(token));
     }
